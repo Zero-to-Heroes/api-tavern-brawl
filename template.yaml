@@ -1,0 +1,68 @@
+# https://github.com/awslabs/serverless-application-model/blob/develop/versions/2016-10-31.md
+# Indentation needs to be set with spaces, because YAML...
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda function that builds Tavern Brawl stats on a regular schedule
+
+Resources:
+    ApiGatewayTavernBrawlStatsApi:
+        Type: AWS::Serverless::Api
+        Properties:
+            StageName: prod
+            CacheClusterEnabled: true
+            CacheClusterSize: '0.5'
+            MethodSettings:
+                - ResourcePath: /
+                  HttpMethod: GET
+                  CachingEnabled: true
+                  CacheTtlInSeconds: 3000 #TODO: maybe use a json file instead of an API? Monitor the calls
+    BuildTavernBrawlStatsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: build-tavern-brawl-stats.default
+            Runtime: nodejs16.x
+            Timeout: 880
+            CodeUri: ./dist/build-tavern-brawl-stats
+            MemorySize: 2000
+            ReservedConcurrentExecutions: 1
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AmazonSESFullAccess
+                - SecretsManagerReadWrite
+                - AmazonSNSReadOnlyAccess
+                - AmazonS3FullAccess
+                - AWSLambda_FullAccess
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: cron-build-tavern-brawl-stats
+            Events:
+                # Populate the info on the last hour
+                LastPeriodTrigger:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 */2 * * ? *) # Every two hours
+    RetrieveTavernBrawlStatsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: retrieve-tavern-brawl-stats.default
+            Runtime: nodejs16.x
+            # API Gateway timeout is 30
+            Timeout: 29
+            MemorySize: 156
+            CodeUri: ./dist/retrieve-tavern-brawl-stats
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AmazonSESFullAccess
+                - AmazonSQSFullAccess
+                - SecretsManagerReadWrite
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: api-retrieve-tavern-brawl-stats
+            Events:
+                GetTavernBrawlStatsResource:
+                    Type: Api
+                    Properties:
+                        Path: /
+                        Method: get
+                        RestApiId:
+                            Ref: ApiGatewayTavernBrawlStatsApi
