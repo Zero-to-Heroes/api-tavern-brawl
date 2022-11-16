@@ -89,10 +89,16 @@ const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[]): StatForC
 };
 
 const loadBrawlInfo = async (scenarioId: number, startDate: Date): Promise<BrawlInfo> => {
+	const brawlConfigStr = await s3.readContentAsString(
+		'static.zerotoheroes.com',
+		'hearthstone/data/tavern-brawls.json',
+	);
+	const brawlConfig: readonly BrawlConfig[] = !brawlConfigStr?.length ? null : JSON.parse(brawlConfigStr);
+	const config = brawlConfig.find(c => c.scenarioId === scenarioId);
 	return {
 		scenarioId: scenarioId,
 		startDate: startDate,
-		name: null,
+		name: config?.name,
 		description: null,
 	};
 };
@@ -149,4 +155,9 @@ interface InternalReplaySummaryRow {
 	readonly playerClass: string;
 	readonly result: 'won' | 'lost' | 'tied';
 	readonly playerDecklist: string;
+}
+
+interface BrawlConfig {
+	readonly scenarioId: number;
+	readonly name: string;
 }
