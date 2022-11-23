@@ -24,12 +24,19 @@ const buildNewStats = async (event, context: Context) => {
 	await allCards.initializeCardsDb();
 
 	const currentBrawlScenarioId = await getLatestBrawlScenarioId();
-	const startDate = await getStartDate(currentBrawlScenarioId);
+	console.log('currentBrawlScenarioId', currentBrawlScenarioId);
 	const allBrawlGames = await loadAllBrawlGames(currentBrawlScenarioId);
+	console.log('allBrawlGames', allBrawlGames.length);
+	const startDate = await getStartDate(allBrawlGames);
+	console.log('startDate', startDate);
 	const validGames = allBrawlGames.filter(g => g.result === 'won' || g.result === 'lost');
+	console.log('validGames', validGames.length);
 	const statsByClass = buildStatsByClass(validGames);
+	console.log('statsByClass', statsByClass);
 	const brawlInfo = await loadBrawlInfo(currentBrawlScenarioId, startDate);
+	console.log('brawlInfo', brawlInfo);
 	await saveStats(statsByClass, brawlInfo);
+	console.log('stats saved');
 
 	cleanup();
 	return { statusCode: 200, body: null };
@@ -119,20 +126,8 @@ const loadAllBrawlGames = async (scenarioId: number): Promise<readonly InternalR
 	return result;
 };
 
-const getStartDate = async (scenarioId: number): Promise<Date> => {
-	const query = `
-		SELECT creationDate
-		FROM replay_summary
-		WHERE gameMode = 'tavern-brawl'
-		AND creationDate >= DATE_SUB(NOW(), INTERVAL 10 DAY)
-		AND scenarioId = ${scenarioId}
-		ORDER BY id ASC
-		LIMIT 1;
-	`;
-	const mysql = await getConnection();
-	const result: readonly InternalReplaySummaryRow[] = await mysql.query(query);
-	await mysql.end();
-	return result[0].creationDate;
+const getStartDate = async (allGames: readonly InternalReplaySummaryRow[]): Promise<Date> => {
+	return new Date(allGames[0].creationDate);
 };
 
 const getLatestBrawlScenarioId = async (): Promise<number> => {
