@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import { getConnection, groupByFunction, logBeforeTimeout, logger, S3 } from '@firestone-hs/aws-lambda-utils';
+import { decode } from '@firestone-hs/deckstrings';
 import { AllCardsService } from '@firestone-hs/reference-data';
 import { Context } from 'aws-lambda';
 import { gzipSync } from 'zlib';
@@ -31,7 +32,7 @@ const buildNewStats = async (event, context: Context) => {
 	console.log('startDate', startDate);
 	const validGames = allBrawlGames.filter(g => g.result === 'won' || g.result === 'lost');
 	console.log('validGames', validGames.length);
-	const statsByClass = buildStatsByClass(validGames);
+	const statsByClass = buildStatsByClass(validGames, currentBrawlScenarioId);
 	console.log('statsByClass', statsByClass);
 	const brawlInfo = await loadBrawlInfo(currentBrawlScenarioId, startDate);
 	console.log('brawlInfo', brawlInfo);
@@ -51,12 +52,12 @@ const saveStats = async (stats: readonly StatForClass[], brawlInfo: BrawlInfo): 
 	await s3.writeFile(gzipSync(JSON.stringify(result)), BUCKET, FILE_KEY, 'application/json', 'gzip');
 };
 
-const buildStatsByClass = (rows: readonly InternalReplaySummaryRow[]): readonly StatForClass[] => {
+const buildStatsByClass = (rows: readonly InternalReplaySummaryRow[], scenarioId: number): readonly StatForClass[] => {
 	const gamesByClass = groupByFunction((row: InternalReplaySummaryRow) => row.playerClass)(rows);
-	return Object.values(gamesByClass).map(games => buildStatsForClass(games));
+	return Object.values(gamesByClass).map(games => buildStatsForClass(games, scenarioId));
 };
 
-const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[]): StatForClass => {
+const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[], scenarioId: number): StatForClass => {
 	if (!rows?.length) {
 		return null;
 	}
@@ -74,6 +75,7 @@ const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[]): StatForC
 				winrate: games.filter(g => g.result === 'won').length / games.length,
 			};
 		})
+		.filter(stat => isValidDeckForScenarioId(stat, scenarioId))
 		.sort((a, b) => b.matches - a.matches);
 	const matchesThreshold = 10;
 	const decksToIncludes = 20;
@@ -93,6 +95,22 @@ const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[]): StatForC
 		bestDecks: finalDecks,
 	};
 	return stat;
+};
+
+// Some manual validation for each brawl
+const isValidDeckForScenarioId = (stat: { decklist: string }, scenarioId: number): boolean => {
+	try {
+		const deckDefinition = decode(stat.decklist);
+		switch (scenarioId) {
+			// Battle of the bans
+			case 3195:
+				return deckDefinition.cards.length === 4;
+			default:
+				return true;
+		}
+	} catch (e) {
+		return false;
+	}
 };
 
 const loadBrawlInfo = async (scenarioId: number, startDate: Date): Promise<BrawlInfo> => {
