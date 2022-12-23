@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import { getConnection, groupByFunction, logBeforeTimeout, logger, S3 } from '@firestone-hs/aws-lambda-utils';
 import { decode } from '@firestone-hs/deckstrings';
-import { AllCardsService } from '@firestone-hs/reference-data';
+import { AllCardsService, getDefaultHeroDbfIdForClass } from '@firestone-hs/reference-data';
 import { Context } from 'aws-lambda';
 import { gzipSync } from 'zlib';
 import { BrawlInfo, DeckStat, StatForClass, TavernBrawlStats } from './model';
@@ -98,9 +98,13 @@ const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[], scenarioI
 };
 
 // Some manual validation for each brawl
-const isValidDeckForScenarioId = (stat: { decklist: string }, scenarioId: number): boolean => {
+const isValidDeckForScenarioId = (stat: { playerClass: string; decklist: string }, scenarioId: number): boolean => {
 	try {
 		const deckDefinition = decode(stat.decklist);
+		if (deckDefinition.heroes[0] !== getDefaultHeroDbfIdForClass(stat.playerClass)) {
+			return false;
+		}
+
 		switch (scenarioId) {
 			// Battle of the bans
 			case 3195:
