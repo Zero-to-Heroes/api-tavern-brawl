@@ -77,21 +77,29 @@ const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[], scenarioI
 		})
 		.filter(stat => isValidDeckForScenarioId(stat, scenarioId))
 		.sort((a, b) => b.matches - a.matches);
-	const matchesThreshold = 10;
-	const decksToIncludes = 20;
+	const mostPopularDeckGames = unfilteredLists[0]?.matches;
+	const matchesThreshold = Math.max(10, mostPopularDeckGames / 5);
+	const decksToIncludes = 5;
 	const bestDecklists: readonly DeckStat[] = unfilteredLists
 		.filter(stats => stats.matches > matchesThreshold)
 		.sort((a, b) => b.winrate - a.winrate)
 		.slice(0, decksToIncludes);
-	const otherDecks = unfilteredLists
-		.filter(stats => stats.matches > 0)
-		.filter(stats => stats.matches <= matchesThreshold)
-		.slice(0, decksToIncludes - bestDecklists.length);
+	const otherDecks =
+		bestDecklists.length < decksToIncludes
+			? unfilteredLists
+					.filter(stats => stats.matches > 0)
+					.filter(stats => stats.matches <= matchesThreshold)
+					.slice(0, decksToIncludes - bestDecklists.length)
+			: [];
 	const finalDecks = [...bestDecklists, ...otherDecks];
 	const stat: StatForClass = {
 		playerClass: rows[0].playerClass,
 		matches: rows.length,
 		winrate: rows.filter(r => r.result === 'won').length / rows.length,
+		bestDecksWinrate:
+			finalDecks.map(d => d.winrate * d.matches).reduce((a, b) => a + b, 0) /
+			finalDecks.map(d => d.matches).reduce((a, b) => a + b, 0),
+		mostPopularDeckGames: mostPopularDeckGames,
 		bestDecks: finalDecks,
 	};
 	return stat;
