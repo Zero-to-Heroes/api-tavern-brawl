@@ -30,7 +30,7 @@ const buildNewStats = async (event, context: Context) => {
 	console.log('allBrawlGames', allBrawlGames.length);
 	const startDate = await getStartDate(allBrawlGames);
 	console.log('startDate', startDate);
-	const validGames = allBrawlGames.filter(g => g.result === 'won' || g.result === 'lost');
+	const validGames = allBrawlGames.filter((g) => g.result === 'won' || g.result === 'lost');
 	console.log('validGames', validGames.length);
 	const statsByClass = buildStatsByClass(validGames, currentBrawlScenarioId);
 	console.log('statsByClass', statsByClass);
@@ -54,7 +54,7 @@ const saveStats = async (stats: readonly StatForClass[], brawlInfo: BrawlInfo): 
 
 const buildStatsByClass = (rows: readonly InternalReplaySummaryRow[], scenarioId: number): readonly StatForClass[] => {
 	const gamesByClass = groupByFunction((row: InternalReplaySummaryRow) => row.playerClass)(rows);
-	return Object.values(gamesByClass).map(games => buildStatsForClass(games, scenarioId));
+	return Object.values(gamesByClass).map((games) => buildStatsForClass(games, scenarioId));
 };
 
 const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[], scenarioId: number): StatForClass => {
@@ -64,41 +64,41 @@ const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[], scenarioI
 
 	const groupedByList = groupByFunction((row: InternalReplaySummaryRow) => row.playerDecklist)(rows);
 	const unfilteredLists = Object.values(groupedByList)
-		.map(games => games.filter(g => !!g?.playerDecklist))
-		.filter(games => games.length > 5)
-		.map(games => {
+		.map((games) => games.filter((g) => !!g?.playerDecklist))
+		.filter((games) => games.length > 5)
+		.map((games) => {
 			const ref = games[0];
 			return {
 				playerClass: rows[0].playerClass,
 				decklist: ref.playerDecklist,
 				matches: games.length,
-				winrate: games.filter(g => g.result === 'won').length / games.length,
+				winrate: games.filter((g) => g.result === 'won').length / games.length,
 			};
 		})
-		.filter(stat => isValidDeckForScenarioId(stat, scenarioId))
+		.filter((stat) => isValidDeckForScenarioId(stat, scenarioId))
 		.sort((a, b) => b.matches - a.matches);
 	const mostPopularDeckGames = unfilteredLists[0]?.matches;
 	const matchesThreshold = Math.max(10, mostPopularDeckGames / 5);
-	const decksToIncludes = 5;
+	const decksToIncludes = 10;
 	const bestDecklists: readonly DeckStat[] = unfilteredLists
-		.filter(stats => stats.matches > matchesThreshold)
+		.filter((stats) => stats.matches > matchesThreshold)
 		.sort((a, b) => b.winrate - a.winrate)
 		.slice(0, decksToIncludes);
 	const otherDecks =
 		bestDecklists.length < decksToIncludes
 			? unfilteredLists
-					.filter(stats => stats.matches > 0)
-					.filter(stats => stats.matches <= matchesThreshold)
+					.filter((stats) => stats.matches > 0)
+					.filter((stats) => stats.matches <= matchesThreshold)
 					.slice(0, decksToIncludes - bestDecklists.length)
 			: [];
 	const finalDecks = [...bestDecklists, ...otherDecks];
 	const stat: StatForClass = {
 		playerClass: rows[0].playerClass,
 		matches: rows.length,
-		winrate: rows.filter(r => r.result === 'won').length / rows.length,
+		winrate: rows.filter((r) => r.result === 'won').length / rows.length,
 		bestDecksWinrate:
-			finalDecks.map(d => d.winrate * d.matches).reduce((a, b) => a + b, 0) /
-			finalDecks.map(d => d.matches).reduce((a, b) => a + b, 0),
+			finalDecks.map((d) => d.winrate * d.matches).reduce((a, b) => a + b, 0) /
+			finalDecks.map((d) => d.matches).reduce((a, b) => a + b, 0),
 		mostPopularDeckGames: mostPopularDeckGames,
 		bestDecks: finalDecks,
 	};
@@ -131,7 +131,7 @@ const loadBrawlInfo = async (scenarioId: number, startDate: Date): Promise<Brawl
 		'hearthstone/data/tavern-brawls.json',
 	);
 	const brawlConfig: readonly BrawlConfig[] = !brawlConfigStr?.length ? null : JSON.parse(brawlConfigStr);
-	const config = brawlConfig.find(c => c.scenarioId === scenarioId);
+	const config = brawlConfig.find((c) => c.scenarioId === scenarioId);
 	return {
 		scenarioId: scenarioId,
 		startDate: startDate,
