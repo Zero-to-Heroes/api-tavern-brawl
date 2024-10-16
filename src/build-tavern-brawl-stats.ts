@@ -3,6 +3,7 @@ import { getConnection, groupByFunction, logBeforeTimeout, logger, S3 } from '@f
 import { decode } from '@firestone-hs/deckstrings';
 import { AllCardsService, getDefaultHeroDbfIdForClass } from '@firestone-hs/reference-data';
 import { Context } from 'aws-lambda';
+import { ServerlessMysql } from 'serverless-mysql';
 import { gzipSync } from 'zlib';
 import { BrawlInfo, DeckStat, StatForClass, TavernBrawlStats } from './model';
 
@@ -24,9 +25,11 @@ const buildNewStats = async (event, context: Context) => {
 	logger.log('event', event);
 	await allCards.initializeCardsDb();
 
-	const currentBrawlScenarioId = await getLatestBrawlScenarioId();
+	const mysql = await getConnection();
+	const currentBrawlScenarioId = await getLatestBrawlScenarioId(mysql);
 	console.log('currentBrawlScenarioId', currentBrawlScenarioId);
-	const allBrawlGames = await loadAllBrawlGames(currentBrawlScenarioId);
+	const allBrawlGames = await loadAllBrawlGames(currentBrawlScenarioId, mysql);
+	await mysql.end();
 	console.log('allBrawlGames', allBrawlGames.length);
 	const startDate = await getStartDate(allBrawlGames);
 	console.log('startDate', startDate);
@@ -140,7 +143,10 @@ const loadBrawlInfo = async (scenarioId: number, startDate: Date): Promise<Brawl
 	};
 };
 
-const loadAllBrawlGames = async (scenarioId: number): Promise<readonly InternalReplaySummaryRow[]> => {
+const loadAllBrawlGames = async (
+	scenarioId: number,
+	mysql: ServerlessMysql,
+): Promise<readonly InternalReplaySummaryRow[]> => {
 	const query = `
 		SELECT creationDate, playerClass, playerDecklist, result, scenarioId  
 		FROM replay_summary
@@ -149,10 +155,8 @@ const loadAllBrawlGames = async (scenarioId: number): Promise<readonly InternalR
 		AND creationDate >= DATE_SUB(NOW(), INTERVAL 7 DAY)
 		AND scenarioId = ${scenarioId};
 	`;
-	const mysql = await getConnection();
 	console.log('running query', query);
 	const result: readonly InternalReplaySummaryRow[] = await mysql.query(query);
-	await mysql.end();
 	return result;
 };
 
@@ -160,7 +164,7 @@ const getStartDate = async (allGames: readonly InternalReplaySummaryRow[]): Prom
 	return new Date(allGames[0].creationDate);
 };
 
-const getLatestBrawlScenarioId = async (): Promise<number> => {
+const getLatestBrawlScenarioId = async (mysql: ServerlessMysql): Promise<number> => {
 	const query = `
 		SELECT scenarioId
 		FROM replay_summary
@@ -168,9 +172,7 @@ const getLatestBrawlScenarioId = async (): Promise<number> => {
 		ORDER BY id DESC
 		LIMIT 1;
 	`;
-	const mysql = await getConnection();
 	const result: readonly InternalReplaySummaryRow[] = await mysql.query(query);
-	await mysql.end();
 	return result[0].scenarioId;
 };
 
