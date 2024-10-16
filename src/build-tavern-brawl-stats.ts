@@ -5,6 +5,7 @@ import { AllCardsService, getDefaultHeroDbfIdForClass } from '@firestone-hs/refe
 import { Context } from 'aws-lambda';
 import { ServerlessMysql } from 'serverless-mysql';
 import { gzipSync } from 'zlib';
+import { getLatestBrawlScenarioId, loadBrawlInfo } from './brawl-utils';
 import { BrawlInfo, DeckStat, StatForClass, TavernBrawlStats } from './model';
 
 export const BUCKET = 'static.zerotoheroes.com';
@@ -37,7 +38,7 @@ const buildNewStats = async (event, context: Context) => {
 	console.log('validGames', validGames.length);
 	const statsByClass = buildStatsByClass(validGames, currentBrawlScenarioId);
 	console.log('statsByClass', statsByClass);
-	const brawlInfo = await loadBrawlInfo(currentBrawlScenarioId, startDate);
+	const brawlInfo = await loadBrawlInfo(currentBrawlScenarioId, startDate, s3);
 	console.log('brawlInfo', brawlInfo);
 	await saveStats(statsByClass, brawlInfo);
 	console.log('stats saved');
@@ -75,6 +76,7 @@ const buildStatsForClass = (rows: readonly InternalReplaySummaryRow[], scenarioI
 				playerClass: rows[0].playerClass,
 				decklist: ref.playerDecklist,
 				matches: games.length,
+				wins: games.filter((g) => g.result === 'won').length,
 				winrate: games.filter((g) => g.result === 'won').length / games.length,
 			};
 		})
@@ -128,21 +130,6 @@ const isValidDeckForScenarioId = (stat: { playerClass: string; decklist: string 
 	}
 };
 
-const loadBrawlInfo = async (scenarioId: number, startDate: Date): Promise<BrawlInfo> => {
-	const brawlConfigStr = await s3.readContentAsString(
-		'static.zerotoheroes.com',
-		'hearthstone/data/tavern-brawls.json',
-	);
-	const brawlConfig: readonly BrawlConfig[] = !brawlConfigStr?.length ? null : JSON.parse(brawlConfigStr);
-	const config = brawlConfig.find((c) => c.scenarioId === scenarioId);
-	return {
-		scenarioId: scenarioId,
-		startDate: startDate,
-		name: config?.name,
-		description: null,
-	};
-};
-
 const loadAllBrawlGames = async (
 	scenarioId: number,
 	mysql: ServerlessMysql,
@@ -164,27 +151,10 @@ const getStartDate = async (allGames: readonly InternalReplaySummaryRow[]): Prom
 	return new Date(allGames[0].creationDate);
 };
 
-const getLatestBrawlScenarioId = async (mysql: ServerlessMysql): Promise<number> => {
-	const query = `
-		SELECT scenarioId
-		FROM replay_summary
-		WHERE gameMode = 'tavern-brawl'
-		ORDER BY id DESC
-		LIMIT 1;
-	`;
-	const result: readonly InternalReplaySummaryRow[] = await mysql.query(query);
-	return result[0].scenarioId;
-};
-
 interface InternalReplaySummaryRow {
 	readonly creationDate: Date;
 	readonly scenarioId: number;
 	readonly playerClass: string;
 	readonly result: 'won' | 'lost' | 'tied';
 	readonly playerDecklist: string;
-}
-
-interface BrawlConfig {
-	readonly scenarioId: number;
-	readonly name: string;
 }

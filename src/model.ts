@@ -7,6 +7,7 @@ export interface TavernBrawlStats {
 export interface StatForClass {
 	readonly playerClass: string;
 	readonly matches: number;
+	readonly wins?: number;
 	readonly mostPopularDeckGames: number;
 	readonly winrate: number;
 	readonly bestDecksWinrate: number;
@@ -17,7 +18,10 @@ export interface DeckStat {
 	readonly playerClass: string;
 	readonly decklist: string;
 	readonly matches: number;
+	readonly wins: number;
 	readonly winrate: number;
+	readonly earliestDate?: string;
+	readonly scenarioId?: number;
 }
 
 export interface BrawlInfo {

@@ -5,6 +5,61 @@ Transform: AWS::Serverless-2016-10-31
 Description: Lambda function that builds Tavern Brawl stats on a regular schedule
 
 Resources:
+    BuildTavernBrawlHourlyStats:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: hourly/_build-stats.default
+            Runtime: nodejs18.x
+            Timeout: 880
+            CodeUri: ./dist/hourly/_build-stats
+            MemorySize: 6000
+            ReservedConcurrentExecutions: 10
+            # Layers:
+            #     - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14"
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AmazonSESFullAccess
+                - SecretsManagerReadWrite
+                - AmazonSNSReadOnlyAccess
+                - AmazonS3FullAccess
+                - AWSLambda_FullAccess
+                - arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: cron-build-hourly-tavern-brawl-stats
+            Events:
+                # Populate the info on the last hour
+                LastPeriodTrigger:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(25 * * * ? *)
+    BuildTavernBrawlAggregateStatsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: aggregate/_build-stats.default
+            Runtime: nodejs18.x
+            Timeout: 880
+            CodeUri: ./dist/aggregate/_build-stats
+            MemorySize: 2000
+            ReservedConcurrentExecutions: 1
+            # Layers:
+            #     - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14"
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AmazonSESFullAccess
+                - SecretsManagerReadWrite
+                - AmazonSNSReadOnlyAccess
+                - AmazonS3FullAccess
+                - AWSLambda_FullAccess
+                - arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: cron-build-tavern-brawl-stats-from-hourly
+            Events:
+                LastPeriodTrigger:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 1/2 * * ? *) # Every two hours
     BuildTavernBrawlStatsFunction:
         Type: AWS::Serverless::Function
         Properties:
@@ -24,7 +79,7 @@ Resources:
                 - AmazonS3FullAccess
                 - AWSLambda_FullAccess
                 - arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy
-                - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
             Tags:
                 LambdaName: cron-build-tavern-brawl-stats
             Events:
