@@ -4,4 +4,5 @@ export interface ReplaySummaryDbRow {
 	readonly playerDecklist: string;
 	readonly result: string;
 	readonly scenarioId: number;
+	readonly application: string;
 }

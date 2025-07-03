@@ -20,9 +20,10 @@ export default async (event, context: Context): Promise<any> => {
 
 	const hourlyData: readonly DeckStat[] = await loadHourlyDataFromS3(currentBrawlScenarioId, s3);
 	const mergedStats: readonly DeckStat[] = mergeStats(hourlyData, allCards);
-	const statsByClass = buildStatsByClass(mergedStats);
+	console.debug('mergedStats', mergedStats);
 	const startDate = mergedStats.map((s) => new Date(s.earliestDate)).reduce((a, b) => (a < b ? a : b));
 	const brawlInfo = await loadBrawlInfo(currentBrawlScenarioId, startDate, s3);
+	const statsByClass = buildStatsByClass(mergedStats);
 	await saveStats(statsByClass, brawlInfo, s3);
 	console.log('stats saved');
 	return { statusCode: 200, body: null };

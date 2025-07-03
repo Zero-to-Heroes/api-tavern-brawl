@@ -11,10 +11,14 @@ export const loadHourlyDataFromS3 = async (currentBrawlScenarioId: number, s3: S
 };
 
 const loadHourlyDeckStatFromS3 = async (fileName: string, s3: S3): Promise<readonly DeckStat[]> => {
-	const fileKey = HOURLY_KEY.replace('%startDate%', fileName);
-	const data = await s3.readGzipContent(STATS_BUCKET, fileKey, 1);
-	const result: readonly DeckStat[] = JSON.parse(data);
-	return result;
+	try {
+		const fileKey = HOURLY_KEY.replace('%startDate%', fileName);
+		const data = await s3.readGzipContent(STATS_BUCKET, fileKey, 1);
+		const result: readonly DeckStat[] = JSON.parse(data);
+		return result;
+	} catch (e) {
+		return [];
+	}
 };
 
 const buildFileNames = (hoursBack: number): readonly string[] => {

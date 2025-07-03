@@ -7,7 +7,7 @@ export const loadRows = async (
 	startDate: Date,
 ): Promise<readonly ReplaySummaryDbRow[]> => {
 	const query = `
-            SELECT creationDate, playerClass, playerDecklist, result, scenarioId  
+            SELECT creationDate, playerClass, playerDecklist, result, scenarioId, application 
             FROM replay_summary
             FORCE INDEX (ix_tavernBrawl)
             WHERE gameMode = 'tavern-brawl'
